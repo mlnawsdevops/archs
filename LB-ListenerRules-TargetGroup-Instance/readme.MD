@@ -7,86 +7,101 @@ In this architecture, the Load Balancer listens on port 80 and forwards requests
 
 1️⃣ User → Load Balancer (Port 80)
 
-The user opens a browser and accesses:
+User opens browser and hits:
 
 http://example.com
 
 
-The browser sends an HTTP request on port 80
+Browser sends an HTTP request on port 80
 
-The request reaches the public DNS/IP of the Load Balancer
+Request reaches the Application Load Balancer (public)
 
-📌 Frontend port = 80
+📌 Frontend Port = 80
 
 2️⃣ Load Balancer Listener (Port 80)
 
-The Load Balancer has a listener configured on port 80
+ALB has a Listener configured on port 80
 
-The listener:
+Listener:
 
-Accepts incoming HTTP requests
+Receives the request
 
 Evaluates listener rules
 
-📌 A listener defines what action to take for requests coming to a specific port
+📌 Listener decides where to forward the request
 
-3️⃣ Listener Rules → Target Group Selection
+3️⃣ Listener Rules → Target Group (Port 80)
 
 Listener rules may check:
 
-Port (80)
+Path ( / , /login, /api )
 
-Path (e.g., /, /login)
+Host name ( optional )
 
-Host (e.g., www.example.com)
+When rule matches:
 
-When a rule matches:
+Request is forwarded to Target Group
 
-The request is forwarded to a Target Group
+📌 Target Group Port = 80
 
-4️⃣ Listener → Target Group (Port 80)
+4️⃣ Target Group → Healthy EC2 Instances (Nginx on 80)
 
-The Target Group is configured with:
+Target Group:
 
-Protocol: HTTP
-
-Port: 80
-
-The Load Balancer forwards traffic to the target group on port 80
-
-📌 Load Balancer port = 80
-📌 Target Group port = 80
-
-5️⃣ Target Group → Healthy EC2 Instances (Nginx on Port 80)
-
-The Target Group:
-
-Maintains a list of EC2 instances
+Maintains list of EC2 instances
 
 Performs health checks on port 80
 
 Only healthy instances receive traffic
 
-On each EC2 instance:
+Nginx is running on port 80 in every instance
 
-Nginx is running on port 80
+📌 No 8080 anywhere — only port 80
 
-👉 Requests are forwarded only to healthy Nginx servers on port 80
+5️⃣ Auto Scaling Group Behind Target Group
 
-6️⃣ Nginx → Response → User
+Target Group is attached to an Auto Scaling Group
 
-Nginx processes the request
+ASG uses a Launch Template
 
-Sends the response back:
+Launch Template uses a prebuilt AMI with:
 
-EC2 (Nginx:80) → Load Balancer → User
+Nginx installed
 
+Application configured
 
-The user sees the final response in the browser
+6️⃣ High Traffic → Scale OUT (Automatic)
 
-✅ One-Line Interview Explanation
-User → Load Balancer (80)
-→ Listener (80)
-→ Target Group (80)
-→ Healthy EC2 Instances running Nginx (80)
-→ Response → User
+Traffic increases
+
+ALB request count / CPU crosses threshold
+
+Scaling policy triggers
+
+ASG:
+
+Launches new EC2 instances from AMI
+
+Automatically registers them with Target Group
+
+High traffic → New instances → Added to Target Group → Load balanced
+
+7️⃣ Low Traffic → Scale IN (Automatic)
+
+Traffic decreases
+
+Utilization goes below threshold
+
+ASG:
+
+Terminates extra EC2 instances
+
+Deregisters them from Target Group
+
+Low traffic → Instances terminated → Cost reduced
+
+8️⃣ Response Flow Back to User
+EC2 (Nginx 80)
+→ Target Group
+→ Load Balancer
+→ User Browser
